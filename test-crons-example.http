@@ -1,0 +1,66 @@
+### Créer un nouveau cron
+POST http://localhost:3000/crons
+Content-Type: application/json
+
+{
+  "name": "Surveillance Google Quotidienne",
+  "description": "Surveillance quotidienne des résultats Google pour notre entreprise",
+  "tags": ["google", "surveillance", "quotidien"],
+  "frequency": "daily",
+  "isActive": true,
+  "companyId": "{{companyId}}"
+}
+
+### Créer un autre cron
+POST http://localhost:3000/crons
+Content-Type: application/json
+
+{
+  "name": "Surveillance LinkedIn Hebdomadaire",
+  "description": "Surveillance hebdomadaire des mentions LinkedIn",
+  "tags": ["linkedin", "surveillance", "hebdomadaire"],
+  "frequency": "weekly",
+  "isActive": true,
+  "companyId": "{{companyId}}"
+}
+
+### Lister tous les crons
+GET http://localhost:3000/crons
+
+### Lister les crons d'une entreprise spécifique
+GET http://localhost:3000/crons/company/{{companyId}}
+
+### Lister les crons actifs
+GET http://localhost:3000/crons/active/list
+
+### Lister les crons par fréquence
+GET http://localhost:3000/crons/frequency/daily
+
+### Récupérer un cron par ID
+GET http://localhost:3000/crons/{{cronId}}
+
+### Mettre à jour un cron
+PATCH http://localhost:3000/crons/{{cronId}}
+Content-Type: application/json
+
+{
+  "name": "Surveillance Google Quotidienne - Mise à jour",
+  "description": "Surveillance quotidienne des résultats Google - Version améliorée",
+  "tags": ["google", "surveillance", "quotidien", "mise-a-jour"],
+  "frequency": "daily"
+}
+
+### Activer/Désactiver un cron
+PATCH http://localhost:3000/crons/{{cronId}}/toggle-active
+
+### Activer un cron spécifiquement
+PATCH http://localhost:3000/crons/{{cronId}}/activate
+
+### Désactiver un cron spécifiquement
+PATCH http://localhost:3000/crons/{{cronId}}/deactivate
+
+### Supprimer un cron
+DELETE http://localhost:3000/crons/{{cronId}}
+
+### Filtrer les crons avec des paramètres de requête
+GET http://localhost:3000/crons?companyId={{companyId}}&frequency=daily&active=true 

@@ -1,0 +1,51 @@
+### Créer une entreprise sans mot de passe (génération automatique)
+POST http://localhost:3000/companies
+Content-Type: application/json
+
+{
+  "name": "Tech Solutions Inc.",
+  "email": "contact@techsolutions.com",
+  "country": "France",
+  "sector": "Technology",
+  "website": "https://www.techsolutions.com",
+  "telephone": "+33612345678"
+}
+
+### Créer une entreprise avec mot de passe personnalisé
+POST http://localhost:3000/companies
+Content-Type: application/json
+
+{
+  "name": "Digital Marketing Pro",
+  "email": "info@digitalmarketingpro.com",
+  "password": "MonMotDePasse123!",
+  "country": "Canada",
+  "sector": "Marketing",
+  "website": "https://www.digitalmarketingpro.com",
+  "telephone": "+14161234567"
+}
+
+### Réinitialiser le mot de passe d'une entreprise
+PATCH http://localhost:3000/companies/{{companyId}}/reset-password
+
+### Lister toutes les entreprises
+GET http://localhost:3000/companies
+
+### Récupérer une entreprise par ID
+GET http://localhost:3000/companies/{{companyId}}
+
+### Mettre à jour une entreprise
+PATCH http://localhost:3000/companies/{{companyId}}
+Content-Type: application/json
+
+{
+  "name": "Tech Solutions Updated",
+  "website": "https://www.techsolutions-updated.com",
+  "telephone": "+33687654321"
+}
+
+### Activer/Désactiver une entreprise
+PATCH http://localhost:3000/companies/{{companyId}}/toggle-active
+
+### Supprimer une entreprise
+DELETE http://localhost:3000/companies/{{companyId}} 
