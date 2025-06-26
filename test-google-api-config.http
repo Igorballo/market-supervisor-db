@@ -1,0 +1,28 @@
+### Vérifier la configuration de l'API Google
+GET http://localhost:3000/search-results/google-api/check
+
+### Test création de cron avec simulation (sans API Google configurée)
+POST http://localhost:3000/crons
+Content-Type: application/json
+
+{
+  "name": "Test Simulation Google",
+  "description": "Test de création de cron avec simulation Google",
+  "tags": ["test", "simulation", "google"],
+  "keywords": "NestJS, backend, développement",
+  "isActive": true,
+  "companyId": "123e4567-e89b-12d3-a456-426614174000",
+  "requestId": "test_simulation_001"
+}
+
+### Test recherche Google directe
+POST http://localhost:3000/search-results
+Content-Type: application/json
+
+{
+  "title": "Test Recherche Directe",
+  "summary": "Test de recherche directe",
+  "url": "https://example.com/test",
+  "source": "test",
+  "cronId": "test-cron-id"
+} 

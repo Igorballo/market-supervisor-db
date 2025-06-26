@@ -1,13 +1,32 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery, ApiParam } from '@nestjs/swagger';
 import { SearchResultsService } from './search-results.service';
 import { SearchResult } from '../entities/search-result.entity';
+import { CreateSearchResultDto } from './dto/search-result.dto';
+import { GoogleSearchService } from './google-search.service';
 
 @ApiTags('Search Results')
 @ApiBearerAuth()
 @Controller('search-results')
 export class SearchResultsController {
-  constructor(private readonly searchResultsService: SearchResultsService) {}
+  constructor(
+    private readonly searchResultsService: SearchResultsService,
+    private readonly googleSearchService: GoogleSearchService,
+  ) {}
+
+  @Post()
+  @ApiOperation({ summary: 'Créer un nouveau résultat de recherche' })
+  @ApiResponse({ status: 201, description: 'Résultat de recherche créé avec succès' })
+  async create(@Body() createSearchResultDto: CreateSearchResultDto) {
+    return this.searchResultsService.create(createSearchResultDto);
+  }
+
+  @Post('many')
+  @ApiOperation({ summary: 'Créer plusieurs résultats de recherche' })
+  @ApiResponse({ status: 201, description: 'Résultats de recherche créés avec succès' })
+  async createMany(@Body() createSearchResultDtos: CreateSearchResultDto[]) {
+    return this.searchResultsService.createMany(createSearchResultDtos);
+  }
 
   @Get('cron/:cronId')
   @ApiOperation({ 
@@ -59,5 +78,12 @@ export class SearchResultsController {
     const start = new Date(startDate);
     const end = new Date(endDate);
     return this.searchResultsService.findByCronAndDateRange(cronId, start, end);
+  }
+
+  @Get('google-api/check')
+  @ApiOperation({ summary: 'Vérifier la configuration de l\'API Google' })
+  @ApiResponse({ status: 200, description: 'Configuration de l\'API Google' })
+  async checkGoogleApiConfiguration() {
+    return this.googleSearchService.checkApiConfiguration();
   }
 } 

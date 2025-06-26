@@ -55,6 +55,7 @@ export class CronsService {
       if (keywords && savedCron.isActive) {
         this.logger.log(`🔍 Mots-clés détectés: "${keywords}" - Lancement de la recherche automatique`);
         
+        
         try {
           this.logger.log(`🔍 Exécution automatique de la recherche pour le nouveau cron: ${savedCron.name}`);
           
@@ -116,7 +117,7 @@ export class CronsService {
   async findByCompany(companyId: string): Promise<Cron[]> {
     return this.cronsRepository.find({
       where: { companyId },
-      relations: ['company'],
+      relations: ['company', 'searchResults'],
       order: { createdAt: 'DESC' },
     });
   }

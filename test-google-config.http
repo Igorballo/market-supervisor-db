@@ -1,0 +1,16 @@
+### Vérifier la configuration de l'API Google
+GET http://localhost:3000/search-results/google-api/check
+
+### Test création de cron avec la clé API existante
+POST http://localhost:3000/crons
+Content-Type: application/json
+
+{
+  "name": "Test API Google Configurée",
+  "description": "Test avec clé API mais sans CX",
+  "tags": ["test", "google-api"],
+  "keywords": "Togo, appels d'offres, énergie",
+  "isActive": true,
+  "companyId": "123e4567-e89b-12d3-a456-426614174000",
+  "requestId": "test_google_config_001"
+} 
