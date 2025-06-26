@@ -10,6 +10,7 @@ import { CreateSearchResultDto } from '../search/dto/search-result.dto';
 @Injectable()
 export class CronsService {
   private readonly logger = new Logger(CronsService.name);
+  private readonly pendingCreations = new Set<string>(); // Cache pour éviter les doubles soumissions
 
   constructor(
     @InjectRepository(Cron)
@@ -19,60 +20,90 @@ export class CronsService {
   ) {}
 
   async create(createCronDto: CreateCronDto): Promise<Cron> {
-    const { name, companyId, keywords } = createCronDto;
+    const { name, companyId, keywords, requestId } = createCronDto;
 
-    // Vérifier si un cron avec le même nom existe déjà pour cette entreprise
-    const existingCron = await this.cronsRepository.findOne({
-      where: { name, companyId },
-    });
-
-    if (existingCron) {
-      throw new ConflictException('Un cron avec ce nom existe déjà pour cette entreprise');
+    // Protection contre les doubles soumissions avec requestId
+    const creationKey = requestId || `create_cron_${name}_${companyId}_${Date.now()}`;
+    if (this.pendingCreations.has(creationKey)) {
+      throw new ConflictException('Une création de cron est déjà en cours pour cette requête');
     }
 
-    // Créer le cron
-    const cron = this.cronsRepository.create({
-      ...createCronDto,
-      isActive: createCronDto.isActive ?? true,
-    });
+    try {
+      this.pendingCreations.add(creationKey);
 
-    const savedCron = await this.cronsRepository.save(cron);
+      this.logger.log(`🚀 Début de création du cron: ${name} pour l'entreprise: ${companyId}`);
 
-    // Exécuter automatiquement une recherche Google si des mots-clés sont fournis
-    if (keywords && savedCron.isActive) {
-      console.log("keywords", keywords);
-      try {
-        this.logger.log(`🔍 Exécution automatique de la recherche pour le nouveau cron: ${savedCron.name}`);
-        
-        // Effectuer la recherche Google
-        const searchResults = await this.googleSearchService.search(keywords);
-        
-        this.logger.log(`📊 ${searchResults.length} résultats trouvés pour le cron ${savedCron.name}`);
+      // Vérifier si un cron avec le même nom existe déjà pour cette entreprise
+      const existingCron = await this.cronsRepository.findOne({
+        where: { name, companyId },
+      });
 
-        if (searchResults.length > 0) {
-          // Préparer les résultats pour la sauvegarde
-          const resultsToSave: CreateSearchResultDto[] = searchResults.map(result => ({
-            ...result,
-            cronId: savedCron.id,
-          }));
-
-          // Sauvegarder les résultats dans la base de données
-          await this.searchResultsService.createMany(resultsToSave);
-          
-          this.logger.log(`💾 ${resultsToSave.length} résultats sauvegardés pour le cron ${savedCron.name}`);
-        }
-
-        // Mettre à jour les statistiques du cron
-        await this.updateLastRun(savedCron.id);
-        
-        this.logger.log(`✅ Recherche automatique terminée pour le cron ${savedCron.name}`);
-      } catch (error) {
-        this.logger.error(`❌ Erreur lors de la recherche automatique pour le cron ${savedCron.name}:`, error.message);
-        // Ne pas faire échouer la création du cron si la recherche échoue
+      if (existingCron) {
+        throw new ConflictException('Un cron avec ce nom existe déjà pour cette entreprise');
       }
-    }
 
-    return savedCron;
+      // Créer le cron
+      const cron = this.cronsRepository.create({
+        ...createCronDto,
+        isActive: createCronDto.isActive ?? true,
+      });
+
+      const savedCron = await this.cronsRepository.save(cron);
+      this.logger.log(`✅ Cron créé avec succès: ${savedCron.name} (ID: ${savedCron.id})`);
+
+      // Exécuter automatiquement une recherche Google si des mots-clés sont fournis
+      if (keywords && savedCron.isActive) {
+        this.logger.log(`🔍 Mots-clés détectés: "${keywords}" - Lancement de la recherche automatique`);
+        
+        try {
+          this.logger.log(`🔍 Exécution automatique de la recherche pour le nouveau cron: ${savedCron.name}`);
+          
+          // Effectuer la recherche Google
+          const searchResults = await this.googleSearchService.search(keywords);
+          
+          this.logger.log(`📊 ${searchResults.length} résultats trouvés pour le cron ${savedCron.name}`);
+
+          if (searchResults.length > 0) {
+            // Préparer les résultats pour la sauvegarde
+            const resultsToSave: CreateSearchResultDto[] = searchResults.map(result => ({
+              ...result,
+              cronId: savedCron.id,
+            }));
+
+            // Sauvegarder les résultats dans la base de données
+            await this.searchResultsService.createMany(resultsToSave);
+            
+            this.logger.log(`💾 ${resultsToSave.length} résultats sauvegardés pour le cron ${savedCron.name}`);
+          } else {
+            this.logger.warn(`⚠️ Aucun résultat trouvé pour les mots-clés: "${keywords}"`);
+          }
+
+          // Mettre à jour les statistiques du cron
+          await this.updateLastRun(savedCron.id);
+          
+          this.logger.log(`✅ Recherche automatique terminée pour le cron ${savedCron.name}`);
+        } catch (error) {
+          this.logger.error(`❌ Erreur lors de la recherche automatique pour le cron ${savedCron.name}:`, error.message);
+          this.logger.error(`   Mots-clés: "${keywords}"`);
+          this.logger.error(`   Erreur complète:`, error);
+          // Ne pas faire échouer la création du cron si la recherche échoue
+        }
+      } else {
+        if (!keywords) {
+          this.logger.log(`ℹ️ Aucun mot-clé fourni pour le cron ${savedCron.name} - Pas de recherche automatique`);
+        } else if (!savedCron.isActive) {
+          this.logger.log(`ℹ️ Cron ${savedCron.name} inactif - Pas de recherche automatique`);
+        }
+      }
+
+      return savedCron;
+    } finally {
+      // Nettoyer le cache après un délai pour permettre les vraies créations
+      setTimeout(() => {
+        this.pendingCreations.delete(creationKey);
+        this.logger.log(`🧹 Cache nettoyé pour la création: ${creationKey}`);
+      }, 5000); // 5 secondes de délai
+    }
   }
 
   async findAll(): Promise<Cron[]> {

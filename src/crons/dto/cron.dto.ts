@@ -52,6 +52,15 @@ export class CreateCronDto {
   @IsString()
   @IsNotEmpty()
   companyId: string;
+
+  @ApiProperty({ 
+    example: 'req_123456789',
+    description: 'ID unique de la requête (optionnel, pour éviter les doubles soumissions)',
+    required: false
+  })
+  @IsString()
+  @IsOptional()
+  requestId?: string;
 }
 
 export class UpdateCronDto {

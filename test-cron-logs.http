@@ -1,0 +1,68 @@
+### Test création de cron avec logs détaillés
+POST http://localhost:3000/crons
+Content-Type: application/json
+
+{
+  "name": "Test Logs Cron",
+  "description": "Cron pour tester les logs détaillés",
+  "tags": ["test", "logs", "debug"],
+  "keywords": "NestJS backend development",
+  "isActive": true,
+  "companyId": "123e4567-e89b-12d3-a456-426614174000",
+  "requestId": "test_logs_001"
+}
+
+### Test création de cron sans mots-clés (pour voir les logs d'info)
+POST http://localhost:3000/crons
+Content-Type: application/json
+
+{
+  "name": "Test Cron Sans Keywords",
+  "description": "Cron sans mots-clés pour tester les logs",
+  "tags": ["test", "no-keywords"],
+  "isActive": true,
+  "companyId": "123e4567-e89b-12d3-a456-426614174000",
+  "requestId": "test_no_keywords_001"
+}
+
+### Test création de cron inactif
+POST http://localhost:3000/crons
+Content-Type: application/json
+
+{
+  "name": "Test Cron Inactif",
+  "description": "Cron inactif pour tester les logs",
+  "tags": ["test", "inactive"],
+  "keywords": "NestJS inactive cron",
+  "isActive": false,
+  "companyId": "123e4567-e89b-12d3-a456-426614174000",
+  "requestId": "test_inactive_001"
+}
+
+### Test double soumission (même requestId)
+POST http://localhost:3000/crons
+Content-Type: application/json
+
+{
+  "name": "Test Double Submission",
+  "description": "Test de protection contre les doubles soumissions",
+  "tags": ["test", "double-submission"],
+  "keywords": "NestJS double submission test",
+  "isActive": true,
+  "companyId": "123e4567-e89b-12d3-a456-426614174000",
+  "requestId": "test_double_001"
+}
+
+### Test double soumission (même requestId) - deuxième appel
+POST http://localhost:3000/crons
+Content-Type: application/json
+
+{
+  "name": "Test Double Submission 2",
+  "description": "Deuxième appel avec le même requestId",
+  "tags": ["test", "double-submission"],
+  "keywords": "NestJS double submission test 2",
+  "isActive": true,
+  "companyId": "123e4567-e89b-12d3-a456-426614174000",
+  "requestId": "test_double_001"
+} 
