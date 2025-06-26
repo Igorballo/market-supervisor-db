@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { CronsService } from './crons.service';
+import { CronExecutorService } from './cron-executor.service';
 import { CreateCronDto, UpdateCronDto } from './dto/cron.dto';
 import { Cron } from '../entities/cron.entity';
 
@@ -8,12 +9,15 @@ import { Cron } from '../entities/cron.entity';
 @ApiBearerAuth()
 @Controller('crons')
 export class CronsController {
-  constructor(private readonly cronsService: CronsService) {}
+  constructor(
+    private readonly cronsService: CronsService,
+    private readonly cronExecutorService: CronExecutorService,
+  ) {}
 
   @Post()
   @ApiOperation({ 
     summary: 'Créer un nouveau cron',
-    description: 'Permet de créer un nouveau cron pour une entreprise'
+    description: 'Permet de créer un nouveau cron pour une entreprise. Une recherche Google sera automatiquement exécutée si des mots-clés sont fournis.'
   })
   @ApiResponse({ status: 201, description: 'Cron créé avec succès', type: Cron })
   @ApiResponse({ status: 409, description: 'Un cron avec ce nom existe déjà pour cette entreprise' })
@@ -143,5 +147,35 @@ export class CronsController {
   @ApiResponse({ status: 200, description: 'Liste des crons actifs', type: [Cron] })
   getActiveCrons() {
     return this.cronsService.getActiveCrons();
+  }
+
+  @Post(':id/execute')
+  @ApiOperation({ 
+    summary: 'Exécuter un cron manuellement',
+    description: 'Exécute un cron spécifique immédiatement'
+  })
+  @ApiResponse({ status: 200, description: 'Cron exécuté avec succès' })
+  @ApiResponse({ status: 404, description: 'Cron non trouvé' })
+  async executeCron(@Param('id') id: string) {
+    await this.cronExecutorService.executeCronManually(id);
+    return {
+      message: `Cron exécuté avec succès`,
+      cronId: id,
+      status: 'completed'
+    };
+  }
+
+  @Post('execute-all')
+  @ApiOperation({ 
+    summary: 'Exécuter tous les crons actifs',
+    description: 'Exécute tous les crons actifs immédiatement'
+  })
+  @ApiResponse({ status: 200, description: 'Tous les crons ont été exécutés' })
+  async executeAllCrons() {
+    await this.cronExecutorService.executeAllActiveCrons();
+    return {
+      message: 'Tous les crons actifs ont été exécutés',
+      status: 'completed'
+    };
   }
 } 

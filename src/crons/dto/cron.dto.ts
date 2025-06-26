@@ -81,6 +81,14 @@ export class UpdateCronDto {
   tags?: string[];
 
   @ApiProperty({ 
+    example: 'google, surveillance, quotidien, mise-a-jour',
+    description: 'Mots clés associés au cron'
+  })
+  @IsString()
+  @IsOptional()
+  keywords?: string;
+
+  @ApiProperty({ 
     example: false,
     description: 'Statut actif/inactif du cron'
   })

@@ -86,4 +86,60 @@ export class CompaniesController {
   resetPassword(@Param('id') id: string) {
     return this.companiesService.resetPassword(id);
   }
+
+  @Post('test-email')
+  @ApiOperation({ 
+    summary: 'Tester la configuration email',
+    description: 'Teste la configuration SMTP et envoie un email de test'
+  })
+  @ApiResponse({ status: 200, description: 'Test email réussi' })
+  @ApiResponse({ status: 500, description: 'Erreur de configuration email' })
+  async testEmail() {
+    try {
+      const testEmail = 'test@example.com';
+      const testName = 'Test Company';
+      const testPassword = 'TestPassword123!';
+      
+      await this.companiesService['emailService'].sendWelcomeEmail(testEmail, testName, testPassword);
+      
+      return {
+        success: true,
+        message: 'Configuration email valide - Email de test envoyé avec succès',
+        testEmail,
+        testPassword
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Erreur de configuration email',
+        error: error.message,
+        suggestion: 'Vérifiez vos variables d\'environnement SMTP_USERNAME et SMTP_PASSWORD'
+      };
+    }
+  }
+
+  @Post('test-email-config')
+  @ApiOperation({ 
+    summary: 'Tester la configuration email uniquement',
+    description: 'Teste uniquement la configuration SMTP sans envoyer d\'email'
+  })
+  @ApiResponse({ status: 200, description: 'Configuration testée' })
+  async testEmailConfig() {
+    try {
+      const isConfigured = await this.companiesService['emailService'].testConnection();
+      
+      return {
+        success: isConfigured,
+        message: isConfigured ? 'Configuration email valide' : 'Configuration email invalide',
+        smtpUsername: process.env.SMTP_USERNAME ? 'Configuré' : 'Non configuré',
+        smtpPassword: process.env.SMTP_PASSWORD ? 'Configuré' : 'Non configuré'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Erreur lors du test de configuration',
+        error: error.message
+      };
+    }
+  }
 } 

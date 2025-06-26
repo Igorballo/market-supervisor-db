@@ -1,0 +1,69 @@
+### Créer un cron avec des mots-clés - Recherche automatique immédiate
+POST http://localhost:3000/crons
+Content-Type: application/json
+
+{
+  "name": "Surveillance Google - Tech Solutions",
+  "description": "Surveillance quotidienne des mentions de Tech Solutions sur Google",
+  "tags": ["google", "surveillance", "tech-solutions"],
+  "keywords": "Tech Solutions Inc. OR \"Tech Solutions\"",
+  "isActive": true,
+  "companyId": "{{companyId}}"
+}
+
+### Créer un autre cron avec des mots-clés différents
+POST http://localhost:3000/crons
+Content-Type: application/json
+
+{
+  "name": "Surveillance Google - Concurrence",
+  "description": "Surveillance des mentions de nos concurrents",
+  "tags": ["google", "surveillance", "concurrence"],
+  "keywords": "concurrent OR rival OR compétiteur",
+  "isActive": true,
+  "companyId": "{{companyId}}"
+}
+
+### Créer un cron sans mots-clés (pas de recherche automatique)
+POST http://localhost:3000/crons
+Content-Type: application/json
+
+{
+  "name": "Cron sans recherche automatique",
+  "description": "Ce cron ne déclenchera pas de recherche automatique",
+  "tags": ["test", "sans-recherche"],
+  "isActive": true,
+  "companyId": "{{companyId}}"
+}
+
+### Voir les résultats d'un cron (après création automatique)
+GET http://localhost:3000/search-results/cron/{{cronId}}
+
+### Voir les résultats récents d'un cron
+GET http://localhost:3000/search-results/cron/{{cronId}}/recent?limit=5
+
+### Voir les statistiques d'un cron
+GET http://localhost:3000/search-results/cron/{{cronId}}/stats
+
+### Exécuter manuellement un cron
+POST http://localhost:3000/crons/{{cronId}}/execute
+
+### Exécuter tous les crons actifs
+POST http://localhost:3000/crons/execute-all
+
+### Mettre à jour un cron avec de nouveaux mots-clés
+PATCH http://localhost:3000/crons/{{cronId}}
+Content-Type: application/json
+
+{
+  "name": "Surveillance Google - Tech Solutions - Mise à jour",
+  "description": "Surveillance mise à jour avec de nouveaux mots-clés",
+  "keywords": "Tech Solutions OR \"Tech Solutions Inc\" OR \"Tech Solutions France\"",
+  "tags": ["google", "surveillance", "tech-solutions", "mise-a-jour"]
+}
+
+### Lister tous les crons d'une entreprise
+GET http://localhost:3000/crons/company/{{companyId}}
+
+### Lister tous les crons actifs
+GET http://localhost:3000/crons/active/list 

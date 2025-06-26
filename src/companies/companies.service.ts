@@ -1,78 +1,117 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Company, CompanyRole } from '../entities/company.entity';
 import { CreateCompanyDto, UpdateCompanyDto } from './dto/company.dto';
-import { EmailService } from '../email/email.service';
+import { SimpleEmailService } from '../email/simple-email.service';
 import { generateSecurePassword } from '../utils/password.utils';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class CompaniesService {
+  private readonly logger = new Logger(CompaniesService.name);
+  private readonly pendingCreations = new Set<string>(); // Cache pour éviter les doubles soumissions
+
   constructor(
     @InjectRepository(Company)
     private companiesRepository: Repository<Company>,
-    private emailService: EmailService,
+    private emailService: SimpleEmailService,
   ) {}
 
   async create(createCompanyDto: CreateCompanyDto): Promise<Company> {
     console.log(createCompanyDto);
-    const { email, name, country, sector, website, telephone } = createCompanyDto;
+    const { email, name, country, sector, website, telephone, requestId } = createCompanyDto;
 
-    // Vérifier si l'entreprise existe déjà
-    const existingCompany = await this.companiesRepository.findOne({
-      where: { email },
-    });
-
-    if (existingCompany) {
-      throw new ConflictException('Une entreprise avec cet email existe déjà');
+    // Protection contre les doubles soumissions avec requestId
+    const creationKey = requestId || `create_${email}_${Date.now()}`;
+    if (this.pendingCreations.has(creationKey)) {
+      throw new ConflictException('Une création d\'entreprise est déjà en cours pour cette requête');
     }
 
-    // Générer un mot de passe si non fourni
-    const finalPassword = generateSecurePassword();
-
-    // Hasher le mot de passe
-    const hashedPassword = await bcrypt.hash(finalPassword, 10);
-
-    // Créer l'entreprise
-    const company = this.companiesRepository.create({
-      email,
-      password: hashedPassword,
-      name,
-      country,
-      sector,
-      role: CompanyRole.COMPANY,
-      website,
-      telephone,
-    });
-
-    const savedCompany = await this.companiesRepository.save(company);
-
-    // Envoyer l'email avec les identifiants
     try {
-      await this.emailService.sendWelcomeEmail(email, name, finalPassword);
-      console.log(`✅ Email envoyé avec succès à ${email}`);
-    } catch (error) {
-      // Log l'erreur mais ne pas faire échouer la création de l'entreprise
-      console.error('❌ Erreur lors de l\'envoi de l\'email:', error.message);
-      console.log('📧 Identifiants générés (à envoyer manuellement):');
-      console.log(`   Email: ${email}`);
-      console.log(`   Mot de passe: ${finalPassword}`);
-    }
+      this.pendingCreations.add(creationKey);
 
-    return savedCompany;
+      // Vérifier si l'entreprise existe déjà
+      const existingCompany = await this.companiesRepository.findOne({
+        where: { email },
+      });
+
+      if (existingCompany) {
+        throw new ConflictException('Une entreprise avec cet email existe déjà');
+      }
+
+      // Générer un mot de passe si non fourni
+      const finalPassword = generateSecurePassword();
+
+      // Hasher le mot de passe
+      const hashedPassword = await bcrypt.hash(finalPassword, 10);
+
+      // Créer l'entreprise
+      const company = this.companiesRepository.create({
+        email,
+        password: hashedPassword,
+        name,
+        country,
+        sector,
+        role: CompanyRole.COMPANY,
+        website,
+        telephone,
+      });
+
+      const savedCompany = await this.companiesRepository.save(company);
+
+      // Envoyer l'email avec les identifiants (avec gestion d'erreur robuste)
+      await this.sendWelcomeEmailWithFallback(email, name, finalPassword);
+
+      return savedCompany;
+    } finally {
+      // Nettoyer le cache après un délai pour permettre les vraies créations
+      setTimeout(() => {
+        this.pendingCreations.delete(creationKey);
+      }, 5000); // 5 secondes de délai
+    }
+  }
+
+  private async sendWelcomeEmailWithFallback(email: string, name: string, password: string): Promise<void> {
+    try {
+      // Vérifier d'abord si la configuration email est valide
+      const isEmailConfigured = await this.emailService.testConnection();
+      
+      if (!isEmailConfigured) {
+        this.logger.warn('⚠️ Configuration email non valide, affichage des identifiants dans les logs');
+        this.logCredentialsInLogs(email, password);
+        return;
+      }
+
+      // Essayer d'envoyer l'email
+      await this.emailService.sendWelcomeEmail(email, name, password);
+      this.logger.log(`✅ Email envoyé avec succès à ${email}`);
+    } catch (error) {
+      this.logger.error(`❌ Erreur lors de l'envoi de l'email à ${email}:`, error.message);
+      this.logger.warn('📧 Affichage des identifiants dans les logs comme fallback');
+      this.logCredentialsInLogs(email, password);
+    }
+  }
+
+  private logCredentialsInLogs(email: string, password: string): void {
+    this.logger.log('='.repeat(60));
+    this.logger.log('📧 IDENTIFIANTS GÉNÉRÉS (à envoyer manuellement)');
+    this.logger.log('='.repeat(60));
+    this.logger.log(`Email: ${email}`);
+    this.logger.log(`Mot de passe: ${password}`);
+    this.logger.log('='.repeat(60));
   }
 
   async findAll(): Promise<Company[]> {
     return this.companiesRepository.find({
-      select: ['id', 'name', 'email', 'country', 'sector', 'role', 'isActive', 'createdAt'],
+      select: ['id', 'name', 'email', 'country', 'website', 'telephone', 'sector', 'role', 'isActive', 'createdAt'],
     });
   }
 
   async findOne(id: string): Promise<Company> {
     const company = await this.companiesRepository.findOne({
       where: { id },
-      select: ['id', 'name', 'email', 'country', 'sector', 'role', 'isActive', 'createdAt'],
+      select: ['id', 'name', 'email', 'country', 'website', 'telephone', 'sector', 'role', 'isActive', 'createdAt'],
     });
 
     if (!company) {

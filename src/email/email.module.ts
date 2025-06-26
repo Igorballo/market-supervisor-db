@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { EmailService } from './email.service';
+import { SimpleEmailService } from './simple-email.service';
 
 @Module({
   imports: [
@@ -19,7 +20,7 @@ import { EmailService } from './email.service';
       },
     }),
   ],
-  providers: [EmailService],
-  exports: [EmailService],
+  providers: [EmailService, SimpleEmailService],
+  exports: [EmailService, SimpleEmailService],
 })
 export class EmailModule {} 

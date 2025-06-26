@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
@@ -7,7 +7,9 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { CompaniesModule } from './companies/companies.module';
 import { CronsModule } from './crons/crons.module';
+import { SearchModule } from './search/search.module';
 import { EmailModule } from './email/email.module';
+import { RequestLoggerMiddleware } from './middleware/request-logger.middleware';
 import { Company } from './entities/company.entity';
 import { User } from './entities/user.entity';
 import { Cron } from './entities/cron.entity';
@@ -33,6 +35,9 @@ import * as Joi from 'joi';
         SMTP_PORT: Joi.number().required(),
         SMTP_USERNAME: Joi.string().required(),
         SMTP_PASSWORD: Joi.string().required(),
+        // Google API
+        GOOGLE_API_KEY: Joi.string().required(),
+        GOOGLE_CX: Joi.string().required(),
         // Application
         NODE_ENV: Joi.string().valid('development', 'production', 'test').default('development'),
         PORT: Joi.number().default(3000),
@@ -54,10 +59,17 @@ import * as Joi from 'joi';
     UsersModule,
     CompaniesModule,
     CronsModule,
+    SearchModule,
     EmailModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(RequestLoggerMiddleware)
+      .forRoutes('*');
+  }
+}
 

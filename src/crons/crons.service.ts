@@ -1,14 +1,21 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Cron } from '../entities/cron.entity';
 import { CreateCronDto, UpdateCronDto } from './dto/cron.dto';
+import { GoogleSearchService } from '../search/google-search.service';
+import { SearchResultsService } from '../search/search-results.service';
+import { CreateSearchResultDto } from '../search/dto/search-result.dto';
 
 @Injectable()
 export class CronsService {
+  private readonly logger = new Logger(CronsService.name);
+
   constructor(
     @InjectRepository(Cron)
     private cronsRepository: Repository<Cron>,
+    private readonly googleSearchService: GoogleSearchService,
+    private readonly searchResultsService: SearchResultsService,
   ) {}
 
   async create(createCronDto: CreateCronDto): Promise<Cron> {
@@ -27,10 +34,45 @@ export class CronsService {
     const cron = this.cronsRepository.create({
       ...createCronDto,
       isActive: createCronDto.isActive ?? true,
-      keywords: keywords
     });
 
-    return this.cronsRepository.save(cron);
+    const savedCron = await this.cronsRepository.save(cron);
+
+    // Exécuter automatiquement une recherche Google si des mots-clés sont fournis
+    if (keywords && savedCron.isActive) {
+      console.log("keywords", keywords);
+      try {
+        this.logger.log(`🔍 Exécution automatique de la recherche pour le nouveau cron: ${savedCron.name}`);
+        
+        // Effectuer la recherche Google
+        const searchResults = await this.googleSearchService.search(keywords);
+        
+        this.logger.log(`📊 ${searchResults.length} résultats trouvés pour le cron ${savedCron.name}`);
+
+        if (searchResults.length > 0) {
+          // Préparer les résultats pour la sauvegarde
+          const resultsToSave: CreateSearchResultDto[] = searchResults.map(result => ({
+            ...result,
+            cronId: savedCron.id,
+          }));
+
+          // Sauvegarder les résultats dans la base de données
+          await this.searchResultsService.createMany(resultsToSave);
+          
+          this.logger.log(`💾 ${resultsToSave.length} résultats sauvegardés pour le cron ${savedCron.name}`);
+        }
+
+        // Mettre à jour les statistiques du cron
+        await this.updateLastRun(savedCron.id);
+        
+        this.logger.log(`✅ Recherche automatique terminée pour le cron ${savedCron.name}`);
+      } catch (error) {
+        this.logger.error(`❌ Erreur lors de la recherche automatique pour le cron ${savedCron.name}:`, error.message);
+        // Ne pas faire échouer la création du cron si la recherche échoue
+      }
+    }
+
+    return savedCron;
   }
 
   async findAll(): Promise<Cron[]> {
@@ -118,16 +160,13 @@ export class CronsService {
     });
   }
 
-  // async getCronsByFrequency(frequency: string): Promise<Cron[]> {
-  //   // Vérifier que la fréquence est valide
-  //   if (!Object.values(CronFrequency).includes(frequency as CronFrequency)) {
-  //     throw new Error(`Fréquence invalide: ${frequency}`);
-  //   }
-
-  //   return this.cronsRepository.find({
-  //     where: { frequency: frequency as CronFrequency, isActive: true },
-  //     relations: ['company'],
-  //     order: { createdAt: 'DESC' },
-  //   });
-  // }
+  async getCronsByFrequency(frequency: string): Promise<Cron[]> {
+    // Pour l'instant, retourner tous les crons actifs car nous n'avons plus l'enum frequency
+    // Cette méthode sera utilisée par le scheduler pour exécuter les crons
+    return this.cronsRepository.find({
+      where: { isActive: true },
+      relations: ['company'],
+      order: { createdAt: 'DESC' },
+    });
+  }
 } 
